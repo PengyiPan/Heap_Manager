@@ -27,3 +27,9 @@
 *.i*86
 *.x86_64
 *.hex
+
+.DS_Store
+test_basic
+test_coalesce
+test_stress1
+test_stress2
