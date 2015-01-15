@@ -15,8 +15,8 @@
 #define ALIGNMENT 	WORD_SIZE	/* typically, single word on 32-bit systems and double word on 64-bit systems */
 
 /* rounds up to the nearest multiple of ALIGNMENT */
-/* Q: what is the result of x & ~x? */
-#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~(ALIGNMENT-1))
+/* Q: what is the result of x & ~x ?       Its 0 */
+#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~(ALIGNMENT-1)) //bit manipulation
 
 #define SIZE_T_ALIGNED (ALIGN(sizeof(size_t)))
 

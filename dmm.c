@@ -29,12 +29,29 @@ static metadata_t* freelist = NULL;
 void* dmalloc(size_t numbytes) {
 	if(freelist == NULL) { 			//Initialize through sbrk call first time
 		if(!dmalloc_init())
-			return NULL;
+			return NULL;  //if freelist is successfully initiated, wont return NULL
 	}
+    
+    //after the first time, freelist will not be null, code goes here:
 
 	assert(numbytes > 0);
 
 	/* Your code goes here */
+    
+    if (numbytes < freelist.size) {
+        /*split and return the pointer to the first block, second block remain in the freelist*/
+        
+        
+        metadata_t* new_freelist = freelist;
+        
+        return freelist + METADATA_T_ALIGNED;
+        
+        freelist = new_freelist;
+        
+        
+    }
+    
+    
 	
 	return NULL;
 }
