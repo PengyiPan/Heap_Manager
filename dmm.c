@@ -37,23 +37,27 @@ void* dmalloc(size_t numbytes) {
 	assert(numbytes > 0);
 
 	/* Your code goes here */
-    
-    if (numbytes < freelist.size) {
-        /*split and return the pointer to the first block, second block remain in the freelist*/
-        
-        
-        metadata_t* new_freelist = freelist;
-        
-        return freelist + METADATA_T_ALIGNED;
-        
-        freelist = new_freelist;
-        
-        
-    }
-    
-    
-	
-	return NULL;
+
+	metadata_t* cur_freelist = freelist; //set the current ptr to the head of the freelist
+
+	size_t numbytes_aligned = ALIGN(numbytes); //align the requested numbytes
+
+	while ((cur_freelist->size) < numbytes_aligned) { //move the new_freelist ptr to the start of the block with enough size
+		if ((cur_freelist->next) == NULL){
+			return NULL;
+		}else {
+			cur_freelist = cur_freelist->next;
+		}
+	}
+
+	metadata_t* new_freelist = cur_freelist + numbytes_aligned;
+
+	new_freelist->next = cur_freelist->next;
+	new_freelist->prev = cur_freelist->prev;
+	new_freelist->size = (cur_freelist->size) - numbytes_aligned;
+      
+    return cur_freelist;
+              
 }
 
 void dfree(void* ptr) {
