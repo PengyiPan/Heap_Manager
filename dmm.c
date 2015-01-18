@@ -20,6 +20,19 @@ typedef struct metadata {
 	struct metadata* prev; //What's the use of prev pointer?
 } metadata_t;
 
+typedef struct footer {
+    /* 
+ 	 We use footer to reduce the runtime of coalescing and free to O(1)
+ 	 Size is the size of the block the footer belongs to, the in_use is
+ 	 a boolean showing whether the block is free or not.
+	*/
+	size_t size;
+	bool is_free;
+
+} footer_t;
+
+#define FOOTER_T_ALIGNED (ALIGN(sizeof(footer_t)))
+
 /* freelist maintains all the blocks which are not in use; freelist is kept
  * always sorted to improve the efficiency of coalescing 
  */
@@ -28,8 +41,9 @@ static metadata_t* freelist = NULL;
 
 void* dmalloc(size_t numbytes) {
 	if(freelist == NULL) { 			//Initialize through sbrk call first time
-		if(!dmalloc_init())
+		if(!dmalloc_init()) {
 			return NULL;  //if freelist is successfully initiated, wont return NULL
+		}
 	}
     
     //after the first time, freelist will not be null, code goes here:
@@ -39,30 +53,70 @@ void* dmalloc(size_t numbytes) {
 	/* Your code goes here */
 
 	metadata_t* cur_freelist = freelist; //set the current ptr to the head of the freelist
+	printf("in : %p\n", cur_freelist);
 
 	size_t numbytes_aligned = ALIGN(numbytes); //align the requested numbytes
 
-	while ((cur_freelist->size) < numbytes_aligned) { //move the new_freelist ptr to the start of the block with enough size
+	printf("about to go into while loop\n");
+	printf("%p\n", cur_freelist->next); 
+	printf("%lu\n", cur_freelist->size);
+	printf("%lu\n", (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED));
+	while ((cur_freelist->size) < (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED)) { //move the cur_freelist ptr to the start of the block with enough size
 		if ((cur_freelist->next) == NULL){
 			return NULL;
-		}else {
+		}else {			
 			cur_freelist = cur_freelist->next;
 		}
 	}
+	printf("out of the while loop\n");
+	
+	printf("cur: %p\n", cur_freelist); //so far so good
 
-	metadata_t* new_freelist = cur_freelist + numbytes_aligned;
+	footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned); //create the footer first
 
-	new_freelist->next = cur_freelist->next;
+	printf("footer: %p\n", new_footer);
+
+	new_footer->size = numbytes_aligned;
+	new_footer->is_free = false;
+
+	metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED);
+
+	printf("footer size: %lu\n", FOOTER_T_ALIGNED);
+	printf("new freelist: %p\n", new_freelist);
+
 	new_freelist->prev = cur_freelist->prev;
-	new_freelist->size = (cur_freelist->size) - numbytes_aligned;
-      
-    return cur_freelist;
+	new_freelist->next = cur_freelist->next;
+
+	if (cur_freelist->prev != NULL) {
+		cur_freelist->prev->next = new_freelist;
+	}
+	
+	if (cur_freelist->next != NULL) {
+		cur_freelist->next->prev = new_freelist;
+	}
+
+	if (cur_freelist->prev == NULL && cur_freelist->next == NULL) { //this is the case when cur_freelist is pointing to the only metadata in the memory
+		freelist = new_freelist;
+		printf("new free: %p\n", freelist);
+	}
+	
+	new_freelist->size = (cur_freelist->size) - numbytes_aligned - FOOTER_T_ALIGNED;
+
+	printf("new free list size: %lu\n", new_freelist->size);
+
+	cur_freelist->size = numbytes_aligned; //update the cur_freelist size 
+   
+    return (cur_freelist + METADATA_T_ALIGNED);
               
 }
 
 void dfree(void* ptr) {
 
 	/* Your free and coalescing code goes here */
+	//metadata_t* to_free_ptr = ptr - METADATA_T_ALIGNED;
+	
+
+
 }
 
 bool dmalloc_init() {
@@ -76,13 +130,17 @@ bool dmalloc_init() {
  	*/
 
 	size_t max_bytes = ALIGN(MAX_HEAP_SIZE);
-	freelist = (metadata_t*) sbrk(max_bytes); // returns heap_region, which is initialized to freelist
-	/* Q: Why casting is used? i.e., why (void*)-1? */
 	if (freelist == (void *)-1)
 		return false;
+
+	freelist = (metadata_t*) sbrk(max_bytes); //create a footer at the beginning of the list to satisfy the general testing case in coalescing
+  
 	freelist->next = NULL;
 	freelist->prev = NULL;
-	freelist->size = max_bytes-METADATA_T_ALIGNED;
+	freelist->size = max_bytes - METADATA_T_ALIGNED;
+
+	
+	printf("out: %p\n", freelist);
 	return true;
 }
 
