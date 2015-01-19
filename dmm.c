@@ -28,7 +28,7 @@ typedef struct footer {
  	 a boolean showing whether the block is free or not.
 	*/
 	size_t size;
-	bool is_free;
+	bool is_free; //*********************TODO get rid of the is_free
 
 } footer_t;
 
@@ -42,6 +42,7 @@ static metadata_t* freelist = NULL;
 static metadata_t* head = NULL; //this pointer will always point to the beginning of the sbrk call, where no footer is in front of it
 
 void* dmalloc(size_t numbytes) {
+	
 	if(freelist == NULL) { 			//Initialize through sbrk call first time
 		if(!dmalloc_init()) {
 			return NULL;  //if freelist is successfully initiated, wont return NULL
@@ -88,7 +89,7 @@ void* dmalloc(size_t numbytes) {
 		freelist = new_freelist;
 	}
 	
-	new_freelist->size = (cur_freelist->size) - numbytes_aligned - FOOTER_T_ALIGNED;
+	new_freelist->size = (cur_freelist->size) - numbytes_aligned - FOOTER_T_ALIGNED - METADATA_T_ALIGNED;
 	new_freelist->is_free = true;
 
 	cur_freelist->size = numbytes_aligned; //update the cur_freelist size 
@@ -194,10 +195,13 @@ bool dmalloc_init() {
  	*/
 
 	size_t max_bytes = ALIGN(MAX_HEAP_SIZE);
-	if (freelist == (void *)-1)
-		return false;
+
 
 	freelist = (metadata_t*) sbrk(max_bytes); //create a footer at the beginning of the list to satisfy the general testing case in coalescing
+  	
+  	if (freelist == (void *)-1)
+		return false;
+  	
   	head = freelist;
 
 	freelist->next = NULL;
