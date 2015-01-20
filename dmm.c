@@ -50,7 +50,8 @@ void* dmalloc(size_t numbytes) {
 	if(freelist == NULL) { 			//Initialize through sbrk call first time
 		if(!dmalloc_init()) {
 			return NULL;  //if freelist is successfully initiated, won't return NULL
-		}
+        }
+        printf("init freelist size is %zu \n", freelist->size);
 	}
     
     //after the first time, freelist will not be null, code goes here:
@@ -63,6 +64,9 @@ void* dmalloc(size_t numbytes) {
 
 	metadata_t* cur_freelist = freelist; //set the current ptr to the head of the freelist
 	metadata_t* prev_freelist = NULL;
+    printf("curr_freelist size is %zu \n", cur_freelist->size);
+
+    
 
 	printf("Metadata size is %zu. Footer size is %zu\n", METADATA_T_ALIGNED, FOOTER_T_ALIGNED);
 	
