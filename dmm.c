@@ -17,16 +17,20 @@ typedef struct metadata {
 	*/
 	size_t size;
 	struct metadata* next;
-	//struct metadata* prev; //What's the use of prev pointer?
+	struct metadata* prev; //What's the use of prev pointer?
+    /*(yt) dont we need a doubly linked list in order to coalescing the consecutive free blocks after dfree call?
+     *(yt) we used prev to walk through the freelist?
+     */
 	bool is_free;
 } metadata_t;
 
 typedef struct footer {
     /* 
  	 We use footer to reduce the runtime of coalescing and free to O(1)
- 	 Size is the size of the block the footer belongs to, the in_use is
+ 	 Size is the size of the block the footer belongs to , the in_use is
  	 a boolean showing whether the block is free or not.
 	*/
+    // footer->size contains only numbytes, excluding the header's size
 	size_t size;
 	//bool is_free; //*********************TODO get rid of the is_free
 
@@ -65,25 +69,31 @@ void* dmalloc(size_t numbytes) {
 	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
 
 	while ((cur_freelist->size) < requiredSpace ) { //move the cur_freelist ptr to the start of the block with enough size
-		printf("%zu < %zu \n", cur_freelist->size, (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED));
+		printf("curr_block_size %zu < requiredSpace %zu \n", cur_freelist->size, requiredSpace);
 		if ((cur_freelist->next) == NULL){
-			return NULL;
+			return NULL; //not enough space in freelist
 		}else {
-			prev_freelist = cur_freelist;
+			prev_freelist = cur_freelist; //move
 			cur_freelist = cur_freelist->next;
 		}
 	}
 
+    
 	// SPLIT step 1: Create footer for the block we're allocating
-	footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned);
+	footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned);   //(yt) curr_freelist ??
 	new_footer->size = numbytes_aligned;
 	//new_footer->is_free = false;
 
+    
 	// SPLIT step 2: Create metadata for the remaining free block
-	metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED);
+	metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED); //(yt) ??
+    
+    //(yt)debug
+    printf("Metadata for new_freelist size is %zu. New Footer is %zu\n", METADATA_T_ALIGNED, FOOTER_T_ALIGNED);
+    
 
 	// SPLIT step 3: Remove the allocated block from the free list.
-	//Edge case: the first node in freelist is split.
+	//Edge case: the first block in freelist is split.
 	if(prev_freelist == NULL){
 		freelist = new_freelist;
 		new_freelist->next = cur_freelist->next;
@@ -228,7 +238,7 @@ bool dmalloc_init() {
   	head = freelist;
 
 	freelist->next = NULL;
-	//freelist->prev = NULL;
+	freelist->prev = NULL;
 	freelist->size = max_bytes - METADATA_T_ALIGNED;
 	freelist->is_free = true;
 
