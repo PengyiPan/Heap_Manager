@@ -43,8 +43,8 @@ typedef struct footer {
  0 : unused
  1 : used
  */
-#define TO_USED(size) (size+1)
-#define TO_UNUSED(size) (size-1)
+#define TO_USED(ptr) (ptr->size += 1)
+#define TO_UNUSED(ptr) ( ptr->size = (ptr->size - (ptr->size%8)) )
 
 /* freelist maintains all the blocks which are not in use; freelist is kept
  * always sorted to improve the efficiency of coalescing 
@@ -74,7 +74,7 @@ void* dmalloc(size_t numbytes) {
 	size_t numbytes_aligned = ALIGN(numbytes); //align the requested numbytes
 
 	metadata_t* cur_freelist = freelist; //set the current ptr to the head of the freelist
-	metadata_t* prev_freelist = NULL;
+
     printf("curr_freelist size is %zu \n", cur_freelist->size);
 
     
@@ -82,49 +82,38 @@ void* dmalloc(size_t numbytes) {
 	printf("Metadata size is %zu. Footer size is %zu\n", METADATA_T_ALIGNED, FOOTER_T_ALIGNED);
 	
 	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
-
-	while ((cur_freelist->size) < requiredSpace ) { //move the cur_freelist ptr to the start of the block with enough size
+    
+    //****************if is tail, check numbytes / size
+    
+    
+	while ((cur_freelist->size) < requiredSpace ) { //move the cur_freelist ptr to the start of the block with enough size ///check end
 		printf("curr_block_size %lu < requiredSpace %d \n", cur_freelist->size, requiredSpace);
 		if ((cur_freelist->next) == NULL){
 			return NULL; //not enough space in freelist
 		}else {
-			prev_freelist = cur_freelist; //move
 			cur_freelist = cur_freelist->next;
 		}
 	}
 
     
 	// SPLIT step 1: Create footer for the block we're allocating
-	footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned);   //(yt) curr_freelist ??
+	footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned);
 	new_footer->size = numbytes_aligned;
+    
+    TO_USED(new_footer);
 	//new_footer->is_free = false;
     
     
-    printf("check footer size is : %zu \n", sizeof(new_footer));
-    
-    
 	// SPLIT step 2: Create metadata for the remaining free block
-	metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED); //(yt) ??
+	metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED);
     
-    //(yt)debug
-    printf("Metadata for new_freelist size is %zu. New Footer is %zu\n", METADATA_T_ALIGNED, FOOTER_T_ALIGNED);
-    
-
 	// SPLIT step 3: Remove the allocated block from the free list.
 	//Edge case: the first block in freelist is split.
-	if(prev_freelist == NULL){
-		freelist = new_freelist;
-		new_freelist->next = cur_freelist->next;
-	}
+    
+    new_freelist->prev = cur_freelist->prev;
+    new_freelist->next = cur_freelist->next;
 
-	else{
-		prev_freelist->next = new_freelist;
-		new_freelist->next = cur_freelist->next;
-		//new_freelist->prev = cur_freelist->prev;
-		//new_freelist->next = cur_freelist->next;
-	}
-
-	/*if (cur_freelist->prev != NULL) {
+	if (cur_freelist->prev != NULL) {
 		cur_freelist->prev->next = new_freelist;
 	}
 	
@@ -133,8 +122,8 @@ void* dmalloc(size_t numbytes) {
 	}
 
 	if (cur_freelist->prev == NULL && cur_freelist->next == NULL) { //this is the case when cur_freelist is pointing to the only metadata in the memory
-		freelist = new_freelist;
-	}*/
+        freelist = new_freelist;
+	}
 	
 	//SPLIT step 4: fill in the metadata for the remaining free block
 	new_freelist->size = (cur_freelist->size) - numbytes_aligned - FOOTER_T_ALIGNED - METADATA_T_ALIGNED;
@@ -142,10 +131,10 @@ void* dmalloc(size_t numbytes) {
 
 	cur_freelist->size = numbytes_aligned; //update the cur_freelist size 
 	
-    TO_USED(cur_freelist->size);
+    TO_USED(cur_freelist);
     //cur_freelist->is_free = false;
 	cur_freelist->next = NULL;
-	//cur_freelist->prev = NULL;
+	cur_freelist->prev = NULL;
 
     return (cur_freelist + METADATA_T_ALIGNED);
               
@@ -158,13 +147,14 @@ void dfree(void* ptr) {
 
 	/** Start coalescing **/
     
-    TO_UNUSED(to_free_ptr->size);
+    TO_UNUSED(to_free_ptr);
 
-
+    //************* add testing case for tail
+    
 	//check the block behind it
 	metadata_t* next_block = ptr + (to_free_ptr->size) + FOOTER_T_ALIGNED; //POSSIBLE PROBLEM: cannot find next block metadata
 
-	//if (next_block->is_free == true)
+
     if (next_block->size%8 == 0) {
 
 		to_free_ptr->prev = next_block->prev;
@@ -186,27 +176,39 @@ void dfree(void* ptr) {
 		}			
 	}
 
+    //check the block in front of it
 	if (to_free_ptr != head) { //since head does not have a foot infront of it, cannot check
 
-		//check the block in front of it
-		footer_t* prev_footer = (footer_t*) to_free_ptr - FOOTER_T_ALIGNED; 
-		metadata_t* prev_block = (metadata_t*) prev_footer - prev_footer->size - METADATA_T_ALIGNED; // new line
-
-		//if (prev_block->is_free == true){
-        if (prev_block->size%8 == 0){
-		//if (prev_footer->is_free == true) {
-
-			// metadata_t* prev_block = (metadata_t*) prev_footer - (prev_footer->size) - METADATA_T_ALIGNED;
-
-			prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size); //increase the size
-
-			if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // when the to_free_ptr successfully coalesced the block behind
-				prev_block->next = to_free_ptr->next;
-				prev_block->next->prev = prev_block;
-			}
-
-			to_free_ptr = prev_block;
-		}
+		footer_t* prev_footer = (footer_t*) to_free_ptr - FOOTER_T_ALIGNED;
+        
+        if (prev_footer->size%8 == 0) {
+            
+            metadata_t* prev_block = (metadata_t*) prev_footer - prev_footer->size - METADATA_T_ALIGNED; // new line
+            
+            if (prev_block->size%8 == 0){
+                
+                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size); //increase the size
+                
+                if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // when the to_free_ptr successfully coalesced the block behind
+                    prev_block->next = to_free_ptr->next;
+                    prev_block->next->prev = prev_block;
+                }
+                
+                if (to_free_ptr->prev != NULL && to_free_ptr->next == NULL) {
+                    prev_block->next = to_free_ptr->next; //==NULL
+                }
+                
+                if (to_free_ptr->prev == NULL && to_free_ptr->next != NULL) {
+                    prev_block->next = to_free_ptr->next;
+                    prev_block->next->prev = prev_block;
+                }
+                
+                
+                to_free_ptr = prev_block;
+            }
+        }
+        
+		
 	}
 
 	/** Done with coalescing **/
@@ -218,7 +220,8 @@ void dfree(void* ptr) {
 	//to_free_ptr->is_free = true;
 	footer_t* footer_to_change = (footer_t*) (to_free_ptr + METADATA_T_ALIGNED + (to_free_ptr->size));
 	footer_to_change->size = to_free_ptr->size;
-	// footer_to_change->is_free = true;
+	
+    TO_UNUSED(footer_to_change);
 
 	if (to_free_ptr->prev != NULL) {
 
@@ -228,7 +231,7 @@ void dfree(void* ptr) {
 			to_free_ptr->next->prev = to_free_ptr->prev;
 		}
 	}
-
+ 
 	//put it at the front
 	to_free_ptr->next = freelist; 
 	to_free_ptr->prev = NULL;
