@@ -202,7 +202,7 @@ void dfree(void* ptr) {
 
             if (prev_block->size%8 == 0){
                 
-                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) ; //increase the size
+                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) + FOOTER_T_ALIGNED ; //increase the size
                 
                 
                 if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // when the to_free_ptr successfully coalesced the block behind
