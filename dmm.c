@@ -165,6 +165,7 @@ void dfree(void* ptr) {
 	//check the block behind it
     //~ptr arith bug~ metadata_t* next_block = ptr + (to_free_ptr->size) + FOOTER_T_ALIGNED; //POSSIBLE PROBLEM: cannot find next block metadata
     metadata_t* next_block =  (metadata_t*) (((void*)ptr) + (to_free_ptr->size) + FOOTER_T_ALIGNED);
+    //printf("next_block : %p\n", next_block);
 
 
     if (next_block->size%8 == 0) {
