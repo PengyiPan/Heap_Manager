@@ -156,6 +156,7 @@ void dfree(void* ptr) {
     
 	//~ptr arith bug~ metadata_t* to_free_ptr = ptr - METADATA_T_ALIGNED;
     metadata_t* to_free_ptr = (metadata_t*) (((void*)ptr) - METADATA_T_ALIGNED);
+    printf("Dfree called. to_free_ptr: %p\n", to_free_ptr);
 
 	/** Start coalescing **/
     
@@ -165,8 +166,9 @@ void dfree(void* ptr) {
     
 	//check the block behind it
     //~ptr arith bug~ metadata_t* next_block = ptr + (to_free_ptr->size) + FOOTER_T_ALIGNED; //POSSIBLE PROBLEM: cannot find next block metadata
-    metadata_t* next_block =  (metadata_t*) (((void*)ptr) + (to_free_ptr->size) + FOOTER_T_ALIGNED);
-    //printf("next_block : %p\n", next_block);
+    metadata_t* next_block =  (metadata_t*) (((void*) ptr) + (to_free_ptr->size) + FOOTER_T_ALIGNED);
+    printf("to_free_ptr size: %lu\n", to_free_ptr->size);
+    printf("next_block : %p\n", next_block);
 
 
     if (next_block->size%8 == 0) {
@@ -183,12 +185,14 @@ void dfree(void* ptr) {
 		}
         
         //increase the size of to_free_ptr
-		to_free_ptr->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (next_block->size) + FOOTER_T_ALIGNED; //POSSIBLE PROBLEM: give back the footer next block or not?
+		to_free_ptr->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (next_block->size); //POSSIBLE PROBLEM: give back the footer next block or not?
 
-		if (to_free_ptr->prev == NULL && to_free_ptr->next == NULL) { 
-			printf("Something wrong with next.\n");
-			return;
-		}			
+ 		printf("new to free ptr seize: %lu\n", to_free_ptr->size);
+
+		// if (to_free_ptr->prev == NULL && to_free_ptr->next == NULL) { 
+		// 	printf("Something wrong with next.\n");
+		// 	return;
+		// }			
 	}
 
     //check the block in front of it
@@ -204,7 +208,7 @@ void dfree(void* ptr) {
 
             if (prev_block->size%8 == 0){
                 
-                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) + FOOTER_T_ALIGNED ; //increase the size
+                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) ; //increase the size
                 
                 
                 if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // when the to_free_ptr successfully coalesced the block behind
@@ -238,7 +242,13 @@ void dfree(void* ptr) {
 	//to_free_ptr->is_free = true;
 	//ptr arith bug footer_t* footer_to_change = (footer_t*) (to_free_ptr + METADATA_T_ALIGNED + (to_free_ptr->size));
 	footer_t* footer_to_change = (footer_t*) (((void*)to_free_ptr) + METADATA_T_ALIGNED + (to_free_ptr->size));
+	printf("to_free_ptr pos: %p\n", to_free_ptr);
+	printf("to free prt size after coalescing: %lu\n", to_free_ptr->size);
+	printf("footer to change: %p\n", footer_to_change);
+	printf("tail: %p\n", tail);
+
     footer_to_change->size = to_free_ptr->size;
+
 	
     TO_UNUSED(footer_to_change);
 
@@ -287,7 +297,7 @@ bool dmalloc_init() {
 
 	freelist->next = NULL;
 	freelist->prev = NULL;
-	freelist->size = max_bytes - METADATA_T_ALIGNED;
+	freelist->size = max_bytes - METADATA_T_ALIGNED - FOOTER_T_ALIGNED;
     
 	//freelist->is_free = true;
 
