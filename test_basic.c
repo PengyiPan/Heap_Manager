@@ -27,7 +27,10 @@ int main(int argc, char *argv[])
 
 	printf("calling malloc(10)\n");	
 	array1 = (char*)dmalloc(10);
-	if(array1 == NULL)
+    
+	printf("array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
+    
+    if(array1 == NULL)
 	{
 		fprintf(stderr,"call to dmalloc() failed\n");
 		fflush(stderr);
@@ -44,6 +47,9 @@ int main(int argc, char *argv[])
 
 	printf("calling malloc(940)\n");	
 	array2 = (char*)dmalloc(940);
+    
+    printf("array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
+    
 	if(array2 == NULL)
 	{
 		fprintf(stderr,"call to dmalloc() failed\n");
@@ -60,8 +66,13 @@ int main(int argc, char *argv[])
 
 	printf("calling free(940)\n");	
 	dfree(array2);
+    
+    printf("After free: array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
+    
 	printf("calling malloc(945)\n");	
 	array3 = (char*)dmalloc(945);
+    
+    printf("array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
 
 	if(array3 == NULL)
 	{
