@@ -5,6 +5,23 @@
 
 int main(int argc, char *argv[])
 {
+    
+    /*
+     1024 - 32 = 992
+     malloc(10)
+     
+     992 - 32 - 8 - 16 = 936
+     
+     malloc(940)
+     
+     
+     free(940)
+     
+     malloc(945)
+     
+     */
+    
+    
 	char *array1, *array2, *array3;
 	int i;
 
