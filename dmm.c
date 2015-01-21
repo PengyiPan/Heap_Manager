@@ -62,7 +62,7 @@ void* dmalloc(size_t numbytes) {
 		if(!dmalloc_init()) {
 			return NULL;  //if freelist is successfully initiated, won't return NULL
         }
-        //printf("init freelist size is %zu \n", freelist->size);
+        printf("init freelist size is %zu \n", freelist->size);
 	}
     
     //after the first time, freelist will not be null, code goes here:
@@ -75,124 +75,78 @@ void* dmalloc(size_t numbytes) {
 
 	metadata_t* cur_freelist = freelist; //set the current ptr to the head of the freelist
 
-    //printf("curr_freelist size is %zu \n", cur_freelist->size);
+    printf("curr_freelist size is %zu \n", cur_freelist->size);
 
     
 
-	//printf("Metadata size is %zu. Footer size is %zu\n", METADATA_T_ALIGNED, FOOTER_T_ALIGNED);
+	printf("Metadata size is %zu. Footer size is %zu\n", METADATA_T_ALIGNED, FOOTER_T_ALIGNED);
 	
-	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED);
-
+	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
+    
     //****************if is tail, check numbytes / size
     
-    int tightestSize = MAX_HEAP_SIZE;
-    metadata_t* tightestBlock = NULL;
-
-    //Go through the loop and find the tightest block.
-	while (cur_freelist != NULL) {
-		int sizeOfThisBlock = cur_freelist->size;
-
-		if(sizeOfThisBlock >= requiredSpace){
-			if(sizeOfThisBlock < tightestSize){
-				tightestBlock = cur_freelist;
-				tightestSize = sizeOfThisBlock;
-			}
+    
+	while ((cur_freelist->size) < requiredSpace ) { //move the cur_freelist ptr to the start of the block with enough size ///check end
+		printf("curr_block_size %lu < requiredSpace %d \n", cur_freelist->size, requiredSpace);
+		if ((cur_freelist->next) == NULL){
+			return NULL; //not enough space in freelist
+		}else {
+			cur_freelist = cur_freelist->next;
 		}
-		cur_freelist = cur_freelist->next;
-		//printf("curr_block_size %lu < requiredSpace %d \n", cur_freelist->size, requiredSpace);
 	}
 
-	if(tightestBlock == NULL){ // Could not find any free block bigger than required space
-		return NULL;
+    
+	// SPLIT step 1: Create footer for the block we're allocating
+	//~ptr arith bug~footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned);
+    footer_t* new_footer = (footer_t*) (((void*)cur_freelist) + METADATA_T_ALIGNED + numbytes_aligned);
+    
+    
+	new_footer->size = numbytes_aligned;
+    
+    TO_USED(new_footer);
+
+	//new_footer->is_free = false;
+    
+	// SPLIT step 2: Create metadata for the remaining free block
+    //~ptr arith bug~ metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED);
+    metadata_t* new_freelist = (metadata_t*) (((void*)new_footer) + FOOTER_T_ALIGNED);
+
+
+    
+	// SPLIT step 3: Remove the allocated block from the free list.
+	//Edge case: the first block in freelist is split.
+    
+    new_freelist->prev = cur_freelist->prev;
+    new_freelist->next = cur_freelist->next;
+
+	if (cur_freelist->prev != NULL) {
+		cur_freelist->prev->next = new_freelist;
+	}
+	
+	if (cur_freelist->next != NULL) {
+		cur_freelist->next->prev = new_freelist;
 	}
 
-
-	cur_freelist = tightestBlock;
-	int minimumSizeForSplit = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
-
-	if(tightestSize <= minimumSizeForSplit){ //Cannot be split
-		footer_t* new_footer = (footer_t*) (((void*)cur_freelist) + METADATA_T_ALIGNED + cur_freelist->size - FOOTER_T_ALIGNED);
-		new_footer->size = cur_freelist->size - FOOTER_T_ALIGNED;
-		TO_USED(new_footer);
-		TO_USED(cur_freelist); //update the cur_freelist boolean
-		//remove the allocated block from the freelist
-
-		if (cur_freelist->prev != NULL && cur_freelist->next != NULL) { //cur_freelist in the middle
-			cur_freelist->prev->next = cur_freelist->next;
-			cur_freelist->next->prev = cur_freelist->prev;
-		}
-		else if (cur_freelist->prev == NULL && cur_freelist->next != NULL) { //cur_freelist at the start and not the only one
-			freelist = cur_freelist->next;
-			cur_freelist->next->prev = freelist;
-		}
-
-		else if (cur_freelist->prev != NULL && cur_freelist->next == NULL) { //cur_freelist in the end and not the only one
-	        cur_freelist->prev->next = NULL;
-		}
-		
-		else{ // cur_freelist only block
-			freelist = NULL;
-		}
-
-		cur_freelist->next = NULL;
-		cur_freelist->prev = NULL;
-
-	    //~ptr arith bug~ return (cur_freelist + METADATA_T_ALIGNED);
-	    return (metadata_t*) ((void*)cur_freelist + METADATA_T_ALIGNED);
-
-
-	}
-	else{ // Should be split
-		// SPLIT step 1: Create footer for the block we're allocating
-		//~ptr arith bug~footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned);
-	    footer_t* new_footer = (footer_t*) (((void*)cur_freelist) + METADATA_T_ALIGNED + numbytes_aligned);
-	    
-		new_footer->size = numbytes_aligned;
-	    
-		//new_footer->is_free = false;
-	    
-		// SPLIT step 2: Create metadata for the remaining free block
-	    //~ptr arith bug~ metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED);
-	    metadata_t* new_freelist = (metadata_t*) (((void*)new_footer) + FOOTER_T_ALIGNED);
-
-	    
-		// SPLIT step 3: Remove the allocated block from the free list.
-		//Edge case: the first or last block in freelist is split.
-	    
-	    new_freelist->prev = cur_freelist->prev;
-	    new_freelist->next = cur_freelist->next;
-
-		if (cur_freelist->prev != NULL) {
-			cur_freelist->prev->next = new_freelist;
-		}
-		
-		if (cur_freelist->next != NULL) {
-			cur_freelist->next->prev = new_freelist;
-		}
-
-		if (cur_freelist->prev == NULL && cur_freelist->next == NULL) { //this is the case when cur_freelist is pointing to the only metadata in the memory
-	        freelist = new_freelist;
-		}
-	    
-	    // only one of the two is null?
-	    
-
-		
-		//SPLIT step 4: fill in the metadata for the remaining free block
-		new_freelist->size = (cur_freelist->size) - numbytes_aligned - FOOTER_T_ALIGNED - METADATA_T_ALIGNED;
-		//new_freelist->is_free = true;
-
-		cur_freelist->size = numbytes_aligned; //update the cur_freelist size 
-		TO_USED(cur_freelist);//update the cur_freelist boolean
-
-	    cur_freelist->next = NULL;
-		cur_freelist->prev = NULL;
-
-	    //~ptr arith bug~ return (cur_freelist + METADATA_T_ALIGNED);
-	    
-	    return (metadata_t*) ((void*)cur_freelist + METADATA_T_ALIGNED);
+	if (cur_freelist->prev == NULL && cur_freelist->next == NULL) { //this is the case when cur_freelist is pointing to the only metadata in the memory
+        freelist = new_freelist;
 	}
     
+    // only one of the two is null?
+    
+    
+	
+	//SPLIT step 4: fill in the metadata for the remaining free block
+	new_freelist->size = (cur_freelist->size) - numbytes_aligned - FOOTER_T_ALIGNED - METADATA_T_ALIGNED;
+	//new_freelist->is_free = true;
+
+	cur_freelist->size = numbytes_aligned; //update the cur_freelist size 
+	TO_USED(cur_freelist);//update the cur_freelist boolean
+
+    cur_freelist->next = NULL;
+	cur_freelist->prev = NULL;
+
+    //~ptr arith bug~ return (cur_freelist + METADATA_T_ALIGNED);
+    return (metadata_t*) ((void*)cur_freelist + METADATA_T_ALIGNED);
     
 } 
 
@@ -235,12 +189,10 @@ void dfree(void* ptr) {
 
  		printf("new to free ptr seize: %lu\n", to_free_ptr->size);
 
-
 		// if (to_free_ptr->prev == NULL && to_free_ptr->next == NULL) { 
 		// 	printf("Something wrong with next.\n");
 		// 	return;
 		// }			
-
 	}
 
     //check the block in front of it
@@ -360,4 +312,5 @@ void print_freelist() {
 		freelist_head = freelist_head->next;
 	}
 	DEBUG("\n");
+
 }
