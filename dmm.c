@@ -21,7 +21,7 @@ typedef struct metadata {
     /*(yt) dont we need a doubly linked list in order to coalescing the consecutive free blocks after dfree call?
      *(yt) we used prev to walk through the freelist?
      */
-	bool is_free;
+	//bool is_free;
 } metadata_t;
 
 typedef struct footer {
@@ -38,14 +38,25 @@ typedef struct footer {
 
 #define FOOTER_T_ALIGNED (ALIGN(sizeof(footer_t)))
 
+/*since size is always a multiple of 8, we can use the last one bit in its binary
+ representation to denote whether this block is used or not
+ 0 : unused
+ 1 : used
+ */
+#define TO_USED(size) (size+1)
+#define TO_UNUSED(size) (size-1)
+
 /* freelist maintains all the blocks which are not in use; freelist is kept
  * always sorted to improve the efficiency of coalescing 
  */
 
 static metadata_t* freelist = NULL;
 static metadata_t* head = NULL; //this pointer will always point to the beginning of the sbrk call, where no footer is in front of it
+static metadata_t* tail = NULL; // this points to the
 
 void* dmalloc(size_t numbytes) {
+    
+    //printf("huhhhh");
 
 	if(freelist == NULL) { 			//Initialize through sbrk call first time
 		if(!dmalloc_init()) {
@@ -73,7 +84,7 @@ void* dmalloc(size_t numbytes) {
 	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
 
 	while ((cur_freelist->size) < requiredSpace ) { //move the cur_freelist ptr to the start of the block with enough size
-		printf("curr_block_size %zu < requiredSpace %zu \n", cur_freelist->size, requiredSpace);
+		printf("curr_block_size %lu < requiredSpace %d \n", cur_freelist->size, requiredSpace);
 		if ((cur_freelist->next) == NULL){
 			return NULL; //not enough space in freelist
 		}else {
@@ -87,7 +98,10 @@ void* dmalloc(size_t numbytes) {
 	footer_t* new_footer = (footer_t*) (cur_freelist + METADATA_T_ALIGNED + numbytes_aligned);   //(yt) curr_freelist ??
 	new_footer->size = numbytes_aligned;
 	//new_footer->is_free = false;
-
+    
+    
+    printf("check footer size is : %zu \n", sizeof(new_footer));
+    
     
 	// SPLIT step 2: Create metadata for the remaining free block
 	metadata_t* new_freelist = (metadata_t*) (new_footer + FOOTER_T_ALIGNED); //(yt) ??
@@ -124,10 +138,12 @@ void* dmalloc(size_t numbytes) {
 	
 	//SPLIT step 4: fill in the metadata for the remaining free block
 	new_freelist->size = (cur_freelist->size) - numbytes_aligned - FOOTER_T_ALIGNED - METADATA_T_ALIGNED;
-	new_freelist->is_free = true;
+	//new_freelist->is_free = true;
 
 	cur_freelist->size = numbytes_aligned; //update the cur_freelist size 
-	cur_freelist->is_free = false;
+	
+    TO_USED(cur_freelist->size);
+    //cur_freelist->is_free = false;
 	cur_freelist->next = NULL;
 	//cur_freelist->prev = NULL;
 
@@ -141,12 +157,15 @@ void dfree(void* ptr) {
 	metadata_t* to_free_ptr = ptr - METADATA_T_ALIGNED;
 
 	/** Start coalescing **/
+    
+    TO_UNUSED(to_free_ptr->size);
 
 
 	//check the block behind it
 	metadata_t* next_block = ptr + (to_free_ptr->size) + FOOTER_T_ALIGNED; //POSSIBLE PROBLEM: cannot find next block metadata
 
-	if (next_block->is_free == true) {
+	//if (next_block->is_free == true)
+    if (next_block->size%8 == 0) {
 
 		to_free_ptr->prev = next_block->prev;
 		to_free_ptr->next = next_block->next;
@@ -173,7 +192,8 @@ void dfree(void* ptr) {
 		footer_t* prev_footer = (footer_t*) to_free_ptr - FOOTER_T_ALIGNED; 
 		metadata_t* prev_block = (metadata_t*) prev_footer - prev_footer->size - METADATA_T_ALIGNED; // new line
 
-		if (prev_block->is_free == true){
+		//if (prev_block->is_free == true){
+        if (prev_block->size%8 == 0){
 		//if (prev_footer->is_free == true) {
 
 			// metadata_t* prev_block = (metadata_t*) prev_footer - (prev_footer->size) - METADATA_T_ALIGNED;
@@ -193,8 +213,9 @@ void dfree(void* ptr) {
 
 	/** Start to free **/
 	// We free the list by putting the (coalesced) block in front of the the freelist.
+    
 
-	to_free_ptr->is_free = true;
+	//to_free_ptr->is_free = true;
 	footer_t* footer_to_change = (footer_t*) (to_free_ptr + METADATA_T_ALIGNED + (to_free_ptr->size));
 	footer_to_change->size = to_free_ptr->size;
 	// footer_to_change->is_free = true;
@@ -240,11 +261,13 @@ bool dmalloc_init() {
 		return false;
   	
   	head = freelist;
+    tail = freelist+ MAX_HEAP_SIZE;
 
 	freelist->next = NULL;
 	freelist->prev = NULL;
 	freelist->size = max_bytes - METADATA_T_ALIGNED;
-	freelist->is_free = true;
+    
+	//freelist->is_free = true;
 
 	return true;
 }
