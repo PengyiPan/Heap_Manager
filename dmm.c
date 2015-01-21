@@ -104,6 +104,7 @@ void* dmalloc(size_t numbytes) {
 	new_footer->size = numbytes_aligned;
     
     TO_USED(new_footer);
+
 	//new_footer->is_free = false;
     
 	// SPLIT step 2: Create metadata for the remaining free block
