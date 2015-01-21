@@ -30,7 +30,7 @@ typedef struct footer {
 	size_t size;
 	bool is_free; //*********************TODO get rid of the is_free
 
-} footer_t;
+} footer_t; 
 
 #define FOOTER_T_ALIGNED (ALIGN(sizeof(footer_t)))
 
