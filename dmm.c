@@ -62,7 +62,7 @@ void* dmalloc(size_t numbytes) {
 		if(!dmalloc_init()) {
 			return NULL;  //if freelist is successfully initiated, won't return NULL
         }
-        printf("init freelist size is %zu \n", freelist->size);
+        //printf("init freelist size is %zu \n", freelist->size);
 	}
     
     //after the first time, freelist will not be null, code goes here:
@@ -75,7 +75,7 @@ void* dmalloc(size_t numbytes) {
 
 	metadata_t* cur_freelist = freelist; //set the current ptr to the head of the freelist
 
-    printf("curr_freelist size is %zu \n", cur_freelist->size);
+    //printf("curr_freelist size is %zu \n", cur_freelist->size);
 
 	
 	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
@@ -86,7 +86,7 @@ void* dmalloc(size_t numbytes) {
 	while ((cur_freelist->size) < requiredSpace ) { //move the cur_freelist ptr to the start of the block with enough size ///check end
 		//printf("curr_block_size %lu < requiredSpace %d \n", cur_freelist->size, requiredSpace);
 		if ((cur_freelist->next) == NULL){
-			printf("Not enough space in while loop\n");
+			//printf("Not enough space in while loop\n");
 			return NULL; //not enough space in freelist
 		}else {
 			cur_freelist = cur_freelist->next;
@@ -124,10 +124,10 @@ void* dmalloc(size_t numbytes) {
 	if (cur_freelist->next != NULL) {
 		cur_freelist->next->prev = new_freelist;
 	}
-	printf("New freelist print test: %p\n", new_freelist);
+	//printf("New freelist print test: %p\n", new_freelist);
 
 	if (cur_freelist == freelist && cur_freelist->next == NULL) { //this is the case when cur_freelist is pointing to the only metadata in the memory
-        printf("Freelist shift to the right\n");
+        //printf("Freelist shift to the right\n");
         freelist = new_freelist;
 	}
     
@@ -146,7 +146,7 @@ void* dmalloc(size_t numbytes) {
 	cur_freelist->prev = NULL;
 
     //~ptr arith bug~ return (cur_freelist + METADATA_T_ALIGNED);
-	printf("Malloc done, freelist now at : %p\n", freelist);
+	//printf("Malloc done, freelist now at : %p\n", freelist);
 
     return (void*) ((void*)cur_freelist + METADATA_T_ALIGNED);
     
@@ -158,7 +158,8 @@ void dfree(void* ptr) {
     
 	//~ptr arith bug~ metadata_t* to_free_ptr = ptr - METADATA_T_ALIGNED;
     metadata_t* to_free_ptr = (metadata_t*) (((void*)ptr) - METADATA_T_ALIGNED);
-    printf("Dfree called. to_free_ptr: %p\n", to_free_ptr);
+
+    //printf("Dfree called. to_free_ptr: %p\n", to_free_ptr);
 
 	/** Start coalescing **/
     
@@ -169,8 +170,8 @@ void dfree(void* ptr) {
 	//check the block behind it
     //~ptr arith bug~ metadata_t* next_block = ptr + (to_free_ptr->size) + FOOTER_T_ALIGNED; //POSSIBLE PROBLEM: cannot find next block metadata
     metadata_t* next_block =  (metadata_t*) (((void*) ptr) + (to_free_ptr->size) + FOOTER_T_ALIGNED);
-    printf("to_free_ptr size: %lu\n", to_free_ptr->size);
-    printf("next_block : %p\n", next_block);
+    //printf("to_free_ptr size: %lu\n", to_free_ptr->size);
+    //printf("next_block : %p\n", next_block);
 
 
     if (next_block->size%8 == 0) {
@@ -189,7 +190,7 @@ void dfree(void* ptr) {
         //increase the size of to_free_ptr
 		to_free_ptr->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (next_block->size); //POSSIBLE PROBLEM: give back the footer next block or not?
 
- 		printf("new to free ptr seize: %lu\n", to_free_ptr->size);
+ 		//printf("new to free ptr seize: %lu\n", to_free_ptr->size);
 
 		// if (to_free_ptr->prev == NULL && to_free_ptr->next == NULL) { 
 		// 	printf("Something wrong with next.\n");
@@ -208,108 +209,111 @@ void dfree(void* ptr) {
             //ptr airth bug metadata_t* prev_block = (metadata_t*) prev_footer - prev_footer->size - METADATA_T_ALIGNED; // new line
             metadata_t* prev_block = (metadata_t*) (((void*)prev_footer) - prev_footer->size - METADATA_T_ALIGNED); // new line
 
-//            if (prev_block->size%8 == 0){
-//                
-//                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) ; //increase the size
-//
-//               
-//
-//                else if ( && (to_free_ptr->prev != NULL && to_free_ptr->next == NULL)) { //middle and tail
-//
-//                }
-//
-//                else if ((prev_block == freelist) && (to_free_ptr->prev != NULL && to_free_ptr->next != NULL)) {//head and middle
-//
-//                }
-//
-//                else if
+            prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) ; //increase the size
 
 
+            if (to_free_ptr->prev != NULL && to_free_ptr->next == NULL) { // to_free_ptr is tail in freelist
+                
+                if (prev_block == freelist){ //prev_block is head 
 
-                if (to_free_ptr->prev != NULL && to_free_ptr->next == NULL) { // tail
-                    if (prev_block == freelist){ 
-                    //head + tail
-                    	prev_block->next = to_free_ptr->next; 
-                    } else if (prev_block->prev != NULL && prev_block->next != NULL) { 
-                    //middle + tail
+                	prev_block->next = NULL; 
+                	prev_block->prev = NULL;
 
-                    }
+                } else if (prev_block->prev != NULL && prev_block->next != NULL) { //prev_block is in the middle
 
-                    //==NULL
+                	to_free_ptr->prev->next = NULL; //cut the tail
                 }
 
-
-                
-                
-                if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // middle
-                    if (prev_block == freelist){
-                        //head + middle
-                    } else if (prev_block->prev != NULL && prev_block->next != NULL) {
-                        //middle + middle
-                        
-                    } else if (prev_block->prev != NULL && prev_block->next == NULL){
-                        //tail + middle
-                        
-                    }
-                    
-                }
-                
-
-                
-                if (to_free_ptr->prev == NULL && to_free_ptr->next != NULL) { // head
-                    //prev_block->next = to_free_ptr->next;
-                    //prev_block->next->prev = prev_block;
-                    if (prev_block->prev != NULL && prev_block->next != NULL) {
-                        //middle + head
-                    } else if (prev_block->prev != NULL && prev_block->next == NULL) {
-                        //tail + head
-                    }
-                    
-                    
-                }
-                
-                
-                if (to_free_ptr->prev == NULL && to_free_ptr->next == NULL){ // NULL, aka: did not coalesce with the 'next block'
-                    if (prev_block == freelist){
-                        //head + null
-                    } else if (prev_block->prev != NULL && prev_block->next != NULL) {
-                        //middle + null
-                        
-                    } else if (prev_block->prev != NULL && prev_block->next == NULL){
-                        //tail + null
-                        
-                    }
-                    
-                }
-                
-                
-                to_free_ptr = prev_block;
             }
-        }
+          
+            
+            else if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // to_free_ptr in the middle of freelist
+                
+                if (prev_block == freelist){ //prev_block is head
+
+                	to_free_ptr->prev->next = to_free_ptr->next; //bridge 
+                	to_free_ptr->next->prev = to_free_ptr->prev;
+
+                } else if (prev_block->prev != NULL && prev_block->next != NULL) { //prev_block in the middle
+
+                	to_free_ptr->prev->next = to_free_ptr->next; //bridge 
+                	to_free_ptr->next->prev = to_free_ptr->prev;
+
+
+                } else if (prev_block->prev != NULL && prev_block->next == NULL){ //prev_block is tail
+
+                 	to_free_ptr->prev->next = to_free_ptr->next; //bridge 
+                	to_free_ptr->next->prev = to_free_ptr->prev;               	
+                    
+                }
+                
+            }
+            
+           
+            else if (to_free_ptr->prev == NULL && to_free_ptr->next != NULL) { // to_free_ptr is head in freelist
+                //prev_block->next = to_free_ptr->next;
+                //prev_block->next->prev = prev_block;
+                if (prev_block->prev != NULL && prev_block->next != NULL) { //prev_block is in the middle
+
+                	to_free_ptr->next->prev = NULL; // cut the head
+                	freelist = to_free_ptr->next; // shift the head
+
+                } else if (prev_block->prev != NULL && prev_block->next == NULL) { //prev_block is tail
+
+                	to_free_ptr->next->prev = NULL; // cut the head
+                	freelist = to_free_ptr->next; // shift the head
+
+                }
+                
+                
+            }
+            
+            
+            else if (to_free_ptr->prev == NULL && to_free_ptr->next == NULL){ // NULL, aka: did not coalesce with the 'next block'
+                
+                if (prev_block == freelist){ //prev_block is head
+
+                	//do nothing
+
+                } else if (prev_block->prev != NULL && prev_block->next != NULL) { //prev_block is in the middle
+
+                    //do nothing
+
+                } else if (prev_block->prev != NULL && prev_block->next == NULL){ //prev_block is tail
+
+                    //do nothing
+                }
+                
+            }
+                
+                
+            to_free_ptr = prev_block;
+            
+            }
+    }
         
 		
-	}
-
 	/** Done with coalescing **/
 
 	/** Start to free **/
 	// We free the list by putting the (coalesced) block in front of the the freelist.
     
+	
+	TO_UNUSED(to_free_ptr);
+	
 
-	//to_free_ptr->is_free = true;
-	//ptr arith bug footer_t* footer_to_change = (footer_t*) (to_free_ptr + METADATA_T_ALIGNED + (to_free_ptr->size));
-	footer_t* footer_to_change = (footer_t*) (((void*)to_free_ptr) + METADATA_T_ALIGNED + (to_free_ptr->size));
-	printf("to_free_ptr pos: %p\n", to_free_ptr);
-	printf("to free prt size after coalescing: %lu\n", to_free_ptr->size);
-	printf("footer to change: %p\n", footer_to_change);
-	printf("tail: %p\n", tail);
+	footer_t* footer_to_change = (footer_t*) (((void*) to_free_ptr) + METADATA_T_ALIGNED + (to_free_ptr->size));
+	// printf("to_free_ptr pos: %p\n", to_free_ptr);
+	// printf("to free prt size after coalescing: %lu\n", to_free_ptr->size);
+	// printf("footer to change: %p\n", footer_to_change);
+	// printf("tail: %p\n", tail);
 
     footer_to_change->size = to_free_ptr->size;
 
 	
     TO_UNUSED(footer_to_change);
 
-	if (to_free_ptr->prev != NULL) {
+	if (to_free_ptr->prev != NULL) { //if in the middle or tail, create a bridge
 
 		to_free_ptr->prev->next = to_free_ptr->next;
 
@@ -317,9 +321,13 @@ void dfree(void* ptr) {
 			to_free_ptr->next->prev = to_free_ptr->prev;
 		}
 	}
+
+	//start putting to front
  
  	if (to_free_ptr == freelist) {
+ 		
  		//do nothing
+
  	} else {
 
 		//put it at the front
@@ -332,7 +340,7 @@ void dfree(void* ptr) {
  	}
 	
 
-	printf("Free done, freelist now at : %p\n", freelist);
+	//printf("Free done, freelist now at : %p\n", freelist);
 
 	/** Done with free **/
 
@@ -360,8 +368,8 @@ bool dmalloc_init() {
   	head = freelist;
     tail = (((void *)freelist) + MAX_HEAP_SIZE);
 
-    printf("head in init: %p\n", head);
-    printf("tail in init: %p\n", tail);
+    //printf("head in init: %p\n", head);
+    //printf("tail in init: %p\n", tail);
 
 	freelist->next = NULL;
 	freelist->prev = NULL;
