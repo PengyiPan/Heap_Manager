@@ -71,7 +71,7 @@ void* dmalloc(size_t numbytes) {
 
 	metadata_t* cur_freelist = freelist; //set the current ptr to the head of the freelist
 
-    //printf("curr_freelist size is %zu \n", cur_freelist->size);
+    printf("curr_freelist size is %zu \n", cur_freelist->size);
 
 	
 	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
