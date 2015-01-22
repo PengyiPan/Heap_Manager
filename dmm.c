@@ -374,8 +374,11 @@ bool dmalloc_init() {
 	freelist->next = NULL;
 	freelist->prev = NULL;
 	freelist->size = max_bytes - METADATA_T_ALIGNED - FOOTER_T_ALIGNED;
-    
-	//freelist->is_free = true;
+
+	footer_t* footer_init = (footer_t*) (((void*) freelist) + METADATA_T_ALIGNED + freelist->size);
+
+    footer_init->size = freelist->size;
+
 
 	return true;
 }
