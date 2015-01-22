@@ -77,9 +77,6 @@ void* dmalloc(size_t numbytes) {
 
     printf("curr_freelist size is %zu \n", cur_freelist->size);
 
-    
-
-	printf("Metadata size is %zu. Footer size is %zu\n", METADATA_T_ALIGNED, FOOTER_T_ALIGNED);
 	
 	int requiredSpace = (numbytes_aligned + FOOTER_T_ALIGNED + METADATA_T_ALIGNED);
     
@@ -87,8 +84,9 @@ void* dmalloc(size_t numbytes) {
     
     
 	while ((cur_freelist->size) < requiredSpace ) { //move the cur_freelist ptr to the start of the block with enough size ///check end
-		printf("curr_block_size %lu < requiredSpace %d \n", cur_freelist->size, requiredSpace);
+		//printf("curr_block_size %lu < requiredSpace %d \n", cur_freelist->size, requiredSpace);
 		if ((cur_freelist->next) == NULL){
+			printf("Not enough space in while loop\n");
 			return NULL; //not enough space in freelist
 		}else {
 			cur_freelist = cur_freelist->next;
@@ -126,8 +124,10 @@ void* dmalloc(size_t numbytes) {
 	if (cur_freelist->next != NULL) {
 		cur_freelist->next->prev = new_freelist;
 	}
+	printf("New freelist print test: %p\n", new_freelist);
 
-	if (cur_freelist->prev == NULL && cur_freelist->next == NULL) { //this is the case when cur_freelist is pointing to the only metadata in the memory
+	if (cur_freelist == freelist && cur_freelist->next == NULL) { //this is the case when cur_freelist is pointing to the only metadata in the memory
+        printf("Freelist shift to the right\n");
         freelist = new_freelist;
 	}
     
@@ -146,7 +146,9 @@ void* dmalloc(size_t numbytes) {
 	cur_freelist->prev = NULL;
 
     //~ptr arith bug~ return (cur_freelist + METADATA_T_ALIGNED);
-    return (metadata_t*) ((void*)cur_freelist + METADATA_T_ALIGNED);
+	printf("Malloc done, freelist now at : %p\n", freelist);
+
+    return (void*) ((void*)cur_freelist + METADATA_T_ALIGNED);
     
 } 
 
@@ -209,18 +211,50 @@ void dfree(void* ptr) {
             if (prev_block->size%8 == 0){
                 
                 prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) ; //increase the size
+
+               
+
+                else if ( && (to_free_ptr->prev != NULL && to_free_ptr->next == NULL)) { //middle and tail
+
+                }
+
+                else if ((prev_block == freelist) && (to_free_ptr->prev != NULL && to_free_ptr->next != NULL)) {//head and middle
+
+                }
+
+                else if
+
+
+
+
+
+
+
+
+
+
+
+                if (to_free_ptr->prev != NULL && to_free_ptr->next == NULL) { // tail
+                    if (prev_block == freelist){ 
+                    //head + tail
+                    	prev_block->next = to_free_ptr->next; 
+                    } else if (prev_block->prev != NULL && prev_block->next != NULL) { 
+                    //middle + tail
+
+                    }
+
+                    //==NULL
+                }
+
+
                 
                 
-                if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // when the to_free_ptr successfully coalesced the block behind
-                    prev_block->next = to_free_ptr->next;
-                    prev_block->next->prev = prev_block;
+                if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // middle
                 }
                 
-                if (to_free_ptr->prev != NULL && to_free_ptr->next == NULL) {
-                    prev_block->next = to_free_ptr->next; //==NULL
-                }
+
                 
-                if (to_free_ptr->prev == NULL && to_free_ptr->next != NULL) {
+                if (to_free_ptr->prev == NULL && to_free_ptr->next != NULL) { // head
                     prev_block->next = to_free_ptr->next;
                     prev_block->next->prev = prev_block;
                 }
@@ -261,13 +295,21 @@ void dfree(void* ptr) {
 		}
 	}
  
-	//put it at the front
-	to_free_ptr->next = freelist; 
-	to_free_ptr->prev = NULL;
+ 	if (to_free_ptr == freelist) {
+ 		//do nothing
+ 	} else {
 
-	freelist->prev = to_free_ptr;
+		//put it at the front
+		to_free_ptr->next = freelist; 
+		to_free_ptr->prev = NULL;
 
-	freelist = to_free_ptr;
+		freelist->prev = to_free_ptr;
+
+		freelist = to_free_ptr;
+ 	}
+	
+
+	printf("Free done, freelist now at : %p\n", freelist);
 
 	/** Done with free **/
 
@@ -293,7 +335,10 @@ bool dmalloc_init() {
 		return false;
   	
   	head = freelist;
-    tail = freelist+ MAX_HEAP_SIZE;
+    tail = (((void *)freelist) + MAX_HEAP_SIZE);
+
+    printf("head in init: %p\n", head);
+    printf("tail in init: %p\n", tail);
 
 	freelist->next = NULL;
 	freelist->prev = NULL;

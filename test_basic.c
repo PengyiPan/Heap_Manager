@@ -67,12 +67,12 @@ int main(int argc, char *argv[])
     
     printf("calling free(10)\n");
     dfree(array1);
-    printf("After free 940 and 10: array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
+    printf("After free only 10: array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
     
     
 	printf("calling free(940)\n");	
 	dfree(array2);
-    printf("After free only940: array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
+    printf("After free 10 and 940: array1 : %p ,   array2 : %p ,    array3 : %p \n", array1, array2, array3);
     
     
     
@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
 	printf("String: %s, %s, %s\n",array1, array2, array3);
     
     
-    /*call malloc 10 again after freed 940*/
+    /*call malloc 10 again after malloc 945*/
     printf("calling malloc(10)\n");
     array1 = (char*)dmalloc(10);
     
