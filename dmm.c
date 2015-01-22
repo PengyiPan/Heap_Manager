@@ -17,11 +17,7 @@ typedef struct metadata {
 	*/
 	size_t size;
 	struct metadata* next;
-	struct metadata* prev; //What's the use of prev pointer?
-    /*(yt) dont we need a doubly linked list in order to coalescing the consecutive free blocks after dfree call?
-     *(yt) we used prev to walk through the freelist?
-     */
-	//bool is_free;
+	struct metadata* prev;
 } metadata_t;
 
 typedef struct footer {
@@ -146,7 +142,9 @@ void* dmalloc(size_t numbytes) {
 	cur_freelist->prev = NULL;
 
     //~ptr arith bug~ return (cur_freelist + METADATA_T_ALIGNED);
-	//printf("Malloc done, freelist now at : %p\n", freelist);
+	printf("Malloc done, freelist now at : %p\n", freelist);
+    
+    
 
     return (void*) ((void*)cur_freelist + METADATA_T_ALIGNED);
     
@@ -340,7 +338,7 @@ void dfree(void* ptr) {
  	}
 	
 
-	//printf("Free done, freelist now at : %p\n", freelist);
+	printf("Free done, freelist now at : %p\n", freelist);
 
 	/** Done with free **/
 
