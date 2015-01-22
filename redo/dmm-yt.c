@@ -29,7 +29,6 @@ typedef struct metadata {
 #define USE(ptr) (ptr->size += 1)
 #define UNUSE(ptr) ( ptr->size = (ptr->size - (ptr->size%8)) )
 
-
 /* freelist maintains all the blocks which are not in use; freelist is kept
  * always sorted to improve the efficiency of coalescing 
  */
@@ -46,20 +45,23 @@ void* dmalloc(size_t numbytes) {
 	assert(numbytes > 0);
 
 	/* Your code goes here */
-	
+    //printf("required numbytes is : %d \n", numbytes);
+
     size_t numbytes_aligned = ALIGN(numbytes); //align the requested numbytes
     
     metadata_t* cur_freelist_ptr = freelist; //set the current ptr to the head of the freelist
     
-    printf("curr_freelist size is %zu \n", cur_freelist_ptr->size);
+    //printf("curr_freelist size is %zu \n", cur_freelist_ptr->size);
 
     int requiredSpace = (numbytes_aligned + METADATA_T_ALIGNED);
     
-    printf("required space is : %d \n", requiredSpace);
+    //printf("required space is : %d \n", requiredSpace);
     
     while (cur_freelist_ptr->size < requiredSpace) {
         if (cur_freelist_ptr->next == NULL){
+            //printf("not enough space, return");
             return NULL;
+            
         } else {
             cur_freelist_ptr = cur_freelist_ptr->next;
         }
@@ -72,10 +74,21 @@ void* dmalloc(size_t numbytes) {
     
     
     if (cur_freelist_ptr->next != NULL && cur_freelist_ptr->prev != NULL){
+        //printf("identify problem\n");
+        //print_freelist();
+        
+        //printf("curr_freelist_ptr is %p\n",cur_freelist_ptr);
+        //printf("new_freelist_ptr is %p\n",new_freelist_ptr);
+
+        
+        
         cur_freelist_ptr->prev->next = new_freelist_ptr;
         cur_freelist_ptr->next->prev = new_freelist_ptr;
         new_freelist_ptr->prev = cur_freelist_ptr->prev;
+        new_freelist_ptr->next = cur_freelist_ptr->next;
         
+        //printf("identify problem after split\n");
+        //print_freelist();
     }
     else if (cur_freelist_ptr->next != NULL && cur_freelist_ptr->prev == NULL){
         new_freelist_ptr->prev = NULL;
@@ -94,6 +107,8 @@ void* dmalloc(size_t numbytes) {
     }
     else if (cur_freelist_ptr->next == NULL && cur_freelist_ptr->prev == NULL){
         freelist = new_freelist_ptr;
+        new_freelist_ptr->prev = NULL;
+        new_freelist_ptr->next = NULL;
     }
     
 //    if (cur_freelist_ptr->prev != NULL) {
@@ -117,7 +132,8 @@ void* dmalloc(size_t numbytes) {
     cur_freelist_ptr->next = NULL;
     cur_freelist_ptr->prev = NULL;
     
-    printf("Malloc done, freelist now at : %p\n", freelist);
+    //printf("Malloc done");
+    //print_freelist();
 
 	return (((void*)cur_freelist_ptr) + METADATA_T_ALIGNED);
 }
@@ -137,6 +153,7 @@ void dfree(void* ptr) {
     while (1) {
         if (freelist_prev == NULL && freelist_curr > to_free_ptr) {
             // to_free_ptr should be at the very beginning of the freelist
+            //printf("putting at head");
             to_free_ptr->next = freelist_curr;
             to_free_ptr->prev = NULL;
             freelist_curr->prev = to_free_ptr;
@@ -153,6 +170,7 @@ void dfree(void* ptr) {
         
         if (freelist_prev < to_free_ptr && freelist_curr > to_free_ptr){
             // to_free_ptr should be inserted between here
+            //printf("inserting \n");
             to_free_ptr->next = freelist_curr;
             freelist_curr->prev = to_free_ptr;
             
@@ -161,7 +179,7 @@ void dfree(void* ptr) {
             
             //could possibily coalesce with both front block and behind block
             metadata_t* my_ptr = to_free_ptr;
-            metadata_t* back_ptr = (metadata_t*)(((void*)to_free_ptr) + METADATA_T_ALIGNED);
+            metadata_t* back_ptr = (metadata_t*)(((void*)to_free_ptr) + to_free_ptr->size +  METADATA_T_ALIGNED);
             
             if ( freelist_curr == back_ptr ){
                 coalesce_with_back((void*)back_ptr, (void*)my_ptr);
@@ -175,6 +193,7 @@ void dfree(void* ptr) {
         
         if (freelist_curr->next == NULL && freelist_curr < to_free_ptr){
             // to_free_ptr should be the new ending of the freelist
+            //printf("putting at end");
             freelist_curr->next = to_free_ptr;
             to_free_ptr->prev = freelist_curr;
             to_free_ptr->next = NULL;
@@ -194,12 +213,13 @@ void dfree(void* ptr) {
     
     
     //finish dfree and coalesce
-    printf("Free done, freelist now at : %p\n", freelist);
-    
+    //printf("Free done");
+    //print_freelist();
 }
 
 
 void coalesce_with_back(void* back_ptr, void* my_ptr){
+    //printf("coalescing with behind\n");
     metadata_t* back = (metadata_t*)back_ptr;
     metadata_t* my = (metadata_t*)my_ptr;
     
@@ -212,10 +232,13 @@ void coalesce_with_back(void* back_ptr, void* my_ptr){
     } else {
         //do nothing
     }
+    //just incase
+    back->next = NULL; back->prev = NULL;
 }
 
 
 void coalesce_with_front(void* front_ptr, void* my_ptr){
+    //printf("coalescing with front\n");
     metadata_t* front = (metadata_t*) front_ptr;
     metadata_t* my = (metadata_t*) my_ptr;
     
@@ -228,6 +251,8 @@ void coalesce_with_front(void* front_ptr, void* my_ptr){
     } else {
         //do nothing
     }
+    //justincase
+    my->next = NULL; my->prev = NULL;
 }
 
 
@@ -258,7 +283,10 @@ bool dmalloc_init() {
 void print_freelist() {
 	metadata_t *freelist_head = freelist;
 	while(freelist_head != NULL) {
-		DEBUG("\tFreelist Size:%zd, Head:%p, Prev:%p, Next:%p\t",freelist_head->size,freelist_head,freelist_head->prev,freelist_head->next);
+		//DEBUG("\tFreelist Size:%zd, Head:%p, Prev:%p, Next:%p\t",freelist_head->size,freelist_head,freelist_head->prev,freelist_head->next);
+        
+        
+        printf("\n\tFreelist Size:%zd, Head:%p, Prev:%p, Next:%p\n",freelist_head->size,freelist_head,freelist_head->prev,freelist_head->next);
 		freelist_head = freelist_head->next;
 	}
 	DEBUG("\n");
