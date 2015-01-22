@@ -208,29 +208,21 @@ void dfree(void* ptr) {
             //ptr airth bug metadata_t* prev_block = (metadata_t*) prev_footer - prev_footer->size - METADATA_T_ALIGNED; // new line
             metadata_t* prev_block = (metadata_t*) (((void*)prev_footer) - prev_footer->size - METADATA_T_ALIGNED); // new line
 
-            if (prev_block->size%8 == 0){
-                
-                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) ; //increase the size
-
-               
-
-                else if ( && (to_free_ptr->prev != NULL && to_free_ptr->next == NULL)) { //middle and tail
-
-                }
-
-                else if ((prev_block == freelist) && (to_free_ptr->prev != NULL && to_free_ptr->next != NULL)) {//head and middle
-
-                }
-
-                else if
-
-
-
-
-
-
-
-
+//            if (prev_block->size%8 == 0){
+//                
+//                prev_block->size += FOOTER_T_ALIGNED + METADATA_T_ALIGNED + (to_free_ptr->size) ; //increase the size
+//
+//               
+//
+//                else if ( && (to_free_ptr->prev != NULL && to_free_ptr->next == NULL)) { //middle and tail
+//
+//                }
+//
+//                else if ((prev_block == freelist) && (to_free_ptr->prev != NULL && to_free_ptr->next != NULL)) {//head and middle
+//
+//                }
+//
+//                else if
 
 
 
@@ -250,13 +242,44 @@ void dfree(void* ptr) {
                 
                 
                 if (to_free_ptr->prev != NULL && to_free_ptr->next != NULL) { // middle
+                    if (prev_block == freelist){
+                        //head + middle
+                    } else if (prev_block->prev != NULL && prev_block->next != NULL) {
+                        //middle + middle
+                        
+                    } else if (prev_block->prev != NULL && prev_block->next == NULL){
+                        //tail + middle
+                        
+                    }
+                    
                 }
                 
 
                 
                 if (to_free_ptr->prev == NULL && to_free_ptr->next != NULL) { // head
-                    prev_block->next = to_free_ptr->next;
-                    prev_block->next->prev = prev_block;
+                    //prev_block->next = to_free_ptr->next;
+                    //prev_block->next->prev = prev_block;
+                    if (prev_block->prev != NULL && prev_block->next != NULL) {
+                        //middle + head
+                    } else if (prev_block->prev != NULL && prev_block->next == NULL) {
+                        //tail + head
+                    }
+                    
+                    
+                }
+                
+                
+                if (to_free_ptr->prev == NULL && to_free_ptr->next == NULL){ // NULL, aka: did not coalesce with the 'next block'
+                    if (prev_block == freelist){
+                        //head + null
+                    } else if (prev_block->prev != NULL && prev_block->next != NULL) {
+                        //middle + null
+                        
+                    } else if (prev_block->prev != NULL && prev_block->next == NULL){
+                        //tail + null
+                        
+                    }
+                    
                 }
                 
                 
