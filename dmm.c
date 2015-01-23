@@ -17,22 +17,17 @@ typedef struct metadata {
      */
     size_t size;
     struct metadata* next;
-    struct metadata* prev; //What's the use of prev pointer?
-    /*(yt) dont we need a doubly linked list in order to coalescing the consecutive free blocks after dfree call?
-     *(yt) we used prev to walk through the freelist?
-     */
-    //bool is_free;
+    struct metadata* prev; 
+
 } metadata_t;
 
 typedef struct footer {
     /*
      We use footer to reduce the runtime of coalescing and free to O(1)
-     Size is the size of the block the footer belongs to , the in_use is
-     a boolean showing whether the block is free or not.
+     Size is the size of the block the footer belongs to.
      */
     // footer->size contains only numbytes, excluding the header's size
     size_t size;
-    //bool is_free; //*********************TODO get rid of the is_free
     
 } footer_t;
 
@@ -90,8 +85,7 @@ void* dmalloc(size_t numbytes) {
             
         }
     }
-    
-    
+   
     // SPLIT step 1: Create footer for the block we're allocating
 
     footer_t* new_footer = (footer_t*) (((void*)cur_freelist) + METADATA_T_ALIGNED + numbytes_aligned);
