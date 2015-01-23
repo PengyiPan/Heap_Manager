@@ -5,7 +5,7 @@
 
 /*
 
-Group members: Pengyi Pan (pp83), Yubo Tian (p83), and Chun Sun Baak (cb276)
+Group members: Pengyi Pan (pp83), Yubo Tian (yt65), and Chun Sun Baak (cb276)
     
 Files submitted: dmm.c;
 
@@ -34,7 +34,7 @@ The size of our metadata is the same as that of the default one, but we are able
 piece of information — whether the the block in question is currently in use — by taking advantage of the “free” first bit of the size. 
 More information on the metadata appears in the subsequent section.
 Additionally, we employ a footer for each block that is allocated. Doing so allowed us to perform a O(1) operation for dfree and coalesce, 
-because we would be able to calculate the physical addresses of the block imeediately before the one in question. 
+because we would be able to calculate the physical addresses of the block immediately before the one in question.
 Hence, we would be able to perform coalesce in an O(1) manner, since we need not go through the sorted list in determining where the freed block belongs.
 Since the list need not be sorted anymore, for dfree, we are simply able to add the freed block to the start of the free list, an O(1) operation.
 The tradeoffs considered in making this footer are described in section (2).
@@ -55,7 +55,7 @@ The components of our metadata for each block are very similar to the original p
 each metadatum contains information on the size of the block, pointer to the previous free block,
 and pointer to the next free block. However, we improve on the default metadata by also inserting a flag that indicates
 whether a block is free without having to increase the size of the overhead. We do so by taking advantage of the fact that
-the size of each block is aligned on a longword boundary. This feature implies that the first bit of the size will always be zero;
+the size of each block is aligned on a longword boundary. This feature implies that the first three bits of the size on the right will always be zero;
 thus, the first bit does not convey any information on the size of the block. We exploit this feature by
 changing the first bit of the size to “1” if the block is currently being used and “0” otherwise. 
 By doing so, we are able to tell whether a block is free merely by looking at its metadata without having to increase the size of the overhead.
@@ -66,7 +66,7 @@ is currently free or not simply by performing an arithmetic operation to get to 
 adjacent blocks, we have no need to sort the list of free blocks. Thus, we simply attach the newly freed block to the start of the free list,
 effectively also making dfree O(1).
 
-The tradeoff of including would be that doing so adds a burden to the overhead, increasing the size of it to increase by 
+The tradeoff of including footter would be that doing so adds a burden to the overhead, increasing the size of it to increase by 
 8 bytes, or an 25~50% increase of the original overhead. In response, we tried to shrink the size of the metadata and the footer as much as posible.
 For instance, as previously mentioned, we got rid of a separate boolean value "is_free," which would take up an additional 8 bytes, and integrated the
 information to that conveying the size of the block. In the end, we acknowleedged that including a footer would be the only way through which we can leave the
@@ -136,7 +136,7 @@ Through this project, we were above all able to learn about C in depth. This pro
 
 Best,
 
-Pengyi Pan (pp83), Yubo Tian (p83), and Chun Sun Baak (cb276)
+Pengyi Pan (pp83), Yubo Tian (yt65), and Chun Sun Baak (cb276)
 
 */
 
