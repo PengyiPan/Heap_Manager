@@ -3,6 +3,145 @@
 #include <assert.h> //For asserts
 #include "dmm.h"
 
+/*
+
+Group members: Pengyi Pan (pp83), Yubo Tian (p83), and Chun Sun Baak (cb276)
+    
+Files submitted: dmm.c;
+
+Source for reference: Randal E. Bryant and David R. O’Hallaron. Dynamic Memory Management, Chapter 9 from Com- puter Systems: A Programmer’s Perspective, 2/E (CS:APP2e). 
+http://www.cs.duke.edu/courses/ compsci310/current/internal/dynamicmem.pdf.
+We did not consult Alexander or Professor for this project.
+
+Approximate time spent on the project: twenty hours per member.
+
+
+This READ_ME is organized as follows:
+
+(1) Summary;
+(2) descriptions of and considerations made for metadata and the footer;
+(3) descriptions of and considerations made for dmalloc;
+(4) descriptions of and considerations made for dfree and coalesce; 
+(5) results for heap size of 4MB; and
+(6) reflection.
+
+(1) Summary:
+
+Our code uses an unsorted, doubly-linked list of free blocks for dynamic memory management. 
+Our metadata contain information on the size of the free block, pointer to the previous free block, pointer to the next free block, 
+and an indicator value that tells us whether that block is currently in use. 
+The size of our metadata is the same as that of the default one, but we are able to squeeze in an additional 
+piece of information — whether the the block in question is currently in use — by taking advantage of the “free” first bit of the size. 
+More information on the metadata appears in the subsequent section.
+Additionally, we employ a footer for each block that is allocated. Doing so allowed us to perform a O(1) operation for dfree and coalesce, 
+because we would be able to calculate the physical addresses of the block imeediately before the one in question. 
+Hence, we would be able to perform coalesce in an O(1) manner, since we need not go through the sorted list in determining where the freed block belongs.
+Since the list need not be sorted anymore, for dfree, we are simply able to add the freed block to the start of the free list, an O(1) operation.
+The tradeoffs considered in making this footer are described in section (2).
+
+Finally, our dmalloc employs a first-fit algorithm but is still able to achieve a success rate over 80%. 
+Specifically, dmalloc loops through the list of free blocks until it encounters the first block whose
+size is bigger than (requested space + size of the medatadata and footer), aligned on a longword boundary.
+After we split the free block into two, we allocate the first block to the user and remove it from the free list; 
+the second block, on the other hand, is kept in the free list. 
+
+Overall, the code exhibits a 81.56% success rate for test_stress2. 
+
+
+
+(2) Descriptions of and considerations made for metadata and footer:
+
+The components of our metadata for each block are very similar to the original provided:
+each metadatum contains information on the size of the block, pointer to the previous free block,
+and pointer to the next free block. However, we improve on the default metadata by also inserting a flag that indicates
+whether a block is free without having to increase the size of the overhead. We do so by taking advantage of the fact that
+the size of each block is aligned on a longword boundary. This feature implies that the first bit of the size will always be zero;
+thus, the first bit does not convey any information on the size of the block. We exploit this feature by
+changing the first bit of the size to “1” if the block is currently being used and “0” otherwise. 
+By doing so, we are able to tell whether a block is free merely by looking at its metadata without having to increase the size of the overhead.
+
+We have included a footer for each block that is allocated that includes the size of the block and on whether the block is free.
+Doing so allowed us to perform a dfree and coalesce in O(1), because we would be able to know whether the block right before the block in question 
+is currently free or not simply by performing an arithmetic operation to get to its footer. Because we are able to directly calculate the pointer to the
+adjacent blocks, we have no need to sort the list of free blocks. Thus, we simply attach the newly freed block to the start of the free list,
+effectively also making dfree O(1).
+
+The tradeoff of including would be that doing so adds a burden to the overhead, increasing the size of it to increase by 
+8 bytes, or an 25~50% increase of the original overhead. In response, we tried to shrink the size of the metadata and the footer as much as posible.
+For instance, as previously mentioned, we got rid of a separate boolean value "is_free," which would take up an additional 8 bytes, and integrated the
+information to that conveying the size of the block. In the end, we acknowleedged that including a footer would be the only way through which we can leave the
+list of free blocks unsorted and still coalesce the blocks, so we included the footer.
+
+Beside the characteristics included in the final version, we have also considered many options in deciding what should be included in the metadata. 
+For instance, we considered removing the previous pointer and keeping only the next pointer for the metadata.
+Doing so would allow us to reduce the overhead of the metadata. However, we eventually ruled against that idea because
+it impeded the code from quickly removing the newly allocated block from the free list.
+
+
+(3) Descriptions of and considerations made for dmalloc:
+
+Our dmalloc employs a first-fit algorithm. Specifically, dmalloc loops through the list of free blocks until it encounters the first block whose size is
+bigger than the sum of the requested space and the overhead , aligned on a longword boundary. After we split the free block into two, 
+we allocate the first block to the user and remove it from the free list; the second block, on the other hand, is kept in the free list. 
+
+Currently, our dmalloc splits a free block into two if its size is bigger than that requested by the user. 
+Alternatively, we have considered splitting the block only if the size of the free block is /significantly/ bigger than the requested size.
+The advantage of such practice would be that it would prevent a free block whose size is fairly close to the requested size from splitting into two 
+and leaving a free block whose size is too small to be frequently usable. The disadvantage of it, on the other hand, would be that in the case that
+the user only needs such small size, not splitting would prevent the user from accessing that memory. In the end, 
+it was not clear that the advantage would outweigh the disadvantage. Moreover, setting the cutoff from which a block will be split into two blocks
+seemed arbitrary without any further empirical information. Thus, we opted not to employ this alternative.
+
+Another option we considered was that of implementing the best-fit algorithm. Again, however, we came to the conclusion that it is unclear whether
+such implementation would enhance the efficiency of our code. Specifically, two opposing arguments could be made for such strategy. 
+An argument in favor of the best-fit strategy would suggest that by doing so, we would be able to keep some big free blocks as they are until the user
+requests a correspondingly big size of memory, i.e. we would be able to avoid some fragmentation. An argument opposing to it, however, 
+would contend that by choosing the free block whose size is closest to the block, after it is split into two, the size of the remaining free block
+would be too small to be useful. In the end, because the  effect of the best-fit strategy is ambiguous, we opted not to employ this alternative.
+Moreover, we were still able to achieve an 80% success rate with the first-fit strategy.
+
+
+(4) Descriptions of and considerations made for dfree and coalesce:
+
+When the user attempts to free the memory, we first see if it is applicable to coalesce the block by checking whether the blocks adjacent to the block being freed
+is currently free. We can do so in constant time: for the block behind it, we can simply calculate the pointer of its metadata and see if it says that that block is free.
+Similarly, for the block ahead of it, we can simply calculate the pointer of its footer and see if it says that that block is free.
+We have created a separate function for coalescing for the sake of readability of the code. 
+When the coalesced block is obtained, we simply attach this block to the head of the free list. Doing so only takes O(1) operation.
+Finally, we deal with the edge cases — when the block being freed should be at the very beginning or the end of the free list — separately.
+
+We considered sorting the likned list each time we allocate or free the block. We came to the conclusion that doing so would be superfluous
+since we need not have the list sorted if we use the footer. As mentioned previously, using the footer, we were able to shrink the running time to
+O(1); the cost was that the size of our overhead increased. We were sitl able to achieve a success rate of over 80% on test_stress2, however, and
+we acknowledged that such increase in overhead was a necessary cost for decreasing the running time to O(1).
+
+
+(5) Results for heap size of 4MB:
+
+test_basic: “Basic testcases passed!”
+test_coalesce: “Coalescing test cases passed!”
+test_stress1: “Stress testcases1 passed!”
+test_stress2: “Loop count: 50000, malloc successful: 40781, malloc failed: 9219, execution time: 0.015495 seconds Stress testcases2 passed!“ (The success percentage, when calculated, is 81.562%.)
+
+In the end, with an unsorted, doubly-linked freee list and a first-fit algorithm, we were able to achieve a success rate higher than 80%. 
+
+NOTE: our code properly works when the max heap size is 4MB.
+
+
+(6) Reflection:
+
+Through this project, we were above all able to learn about C in depth. This project also taught us the importance of “drawing” the program so as to make its operations more transparent and easily understandable. A group project of this magnitude was the first for some members in the group. To them, this project reminded them of the importance of communicating and synthesizing ideas in a group project. Finally, debugging the code was a considerably difficult task to do. This task reminded us one again on the importance of repeatedly writing and testing only small chunks of code. Finally, through this project, we were able to get familiar with Git and realized how useful it is.
+
+
+
+Best,
+
+Pengyi Pan (pp83), Yubo Tian (p83), and Chun Sun Baak (cb276)
+
+*/
+
+
+
 /* You can improve the below metadata structure using the concepts from Bryant
  * and OHallaron book (chapter 9).
  */
@@ -43,10 +182,6 @@ void coalesce(metadata_t* ptr);
 #define TO_USED(ptr) (ptr->size = (ptr->size | 0x1)) 
 #define TO_UNUSED(ptr) ( ptr->size = (ptr->size & (~0x7)) )
 
-/* freelist maintains all the blocks which are not in use; freelist is kept
- * always sorted to improve the efficiency of coalescing
- */
-
 static metadata_t* freelist = NULL;
 static metadata_t* head = NULL; //this pointer will always point to the beginning of the sbrk call, where no footer is in front of it
 static metadata_t* tail = NULL; // this points to the tail of the whole memory block
@@ -59,7 +194,6 @@ void* dmalloc(size_t numbytes) {
         if(!dmalloc_init()) {
             return NULL;  //if freelist is successfully initiated, won't return NULL
         }
-        //printf("init freelist size is %zu \n", freelist->size);
     }
     
     //after the first time, freelist will not be null, code goes here:
